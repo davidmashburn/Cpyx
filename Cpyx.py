@@ -54,7 +54,6 @@ import SetEnvironVars
 # All-in-one with linking dll...
 # gcc -shared numpyTest.c -IC:/Python25/include -LC:/Python25/libs -LC:/Users/mashbudn/Programming/Python/Pyx -lpython25 -lnumpyTestC -o numpyTest.pyd
 
-myPythonDir=os.environ['MYPYTHON']
 myPyrexDir=os.environ['MYPYREX']
 globalUseCython=True
 
