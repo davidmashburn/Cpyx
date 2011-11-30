@@ -6,8 +6,7 @@ For standard (non-inline) usage, you will need to specify the location of your .
 Then call either Cpyx.Cpyx (or Cpyx.CpyxLib if you need to link in an external c file).  File extensions are assumed, so just use the name of the module.
 
 Cpyx has switches for 3 different OS's (windows, linux, mac) for various options, but hard-codes the paths to compiler binaries, etc.
-If you have cython or gcc in a non-standard place, you can either place a link in the spot Cpyx is looking for it or just go
-into Cpyx and edit the path (it's not really that long <500 lines with comments).
+If you have cython or gcc in a non-standard place, you can either place a link in the spot Cpyx is looking for it or just go into Cpyx and edit the path (it's not really that long <500 lines with comments).
 
 It is quite verbose, outputting each command in sequence so you can manually run/modify the compiler commands if you need to.
 ( That way even if it doesn't quite work, maybe you can use it to help you learn how to use cython and gcc ;) )
