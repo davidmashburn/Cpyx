@@ -1,13 +1,12 @@
 import os
-os.environ['MYPYREX']=os.path.expanduser('~/Test') # if you want to compile a file instead of 
 
 import Cpyx
 import numpy as np
 
 # It's magic ;)
 exec(Cpyx.CythonInline('''
-print 'Hello Cython 2!'
-''',useDistutils=True))
+print 'Hello Cython!'
+'''))
 
 # And it supports numpy ;)
 exec(Cpyx.CythonInline('''
