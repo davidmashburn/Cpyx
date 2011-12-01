@@ -412,7 +412,7 @@ def PyrexInline(code,cleanUp=False,useDistutils=globalUseDistutils,useCython=Fal
 PyrexInline.__doc__ = CythonInline.__doc__.replace('Cython','Pyrex')
 
 def CleanTmp():
-    '''Remove built modules from '~/.Cpyx_tmp' '''
+    '''Remove temp files and built modules from '~/.Cpyx_tmp' '''
     tmpPath=os.path.expanduser('~/.Cpyx_tmp')
     for i in glob.glob(os.path.join(tmpPath,'*')):
         os.remove(i)
