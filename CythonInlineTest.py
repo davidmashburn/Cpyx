@@ -1,5 +1,3 @@
-import os
-
 import Cpyx
 import numpy as np
 
