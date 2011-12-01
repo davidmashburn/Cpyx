@@ -1,14 +1,35 @@
-Cpyx is a very dumb utility to run cython and then gcc.
-It can also import and run the result from inlined cython code within python (see CythonInlineTest.py).
-I find this immensely helpful for testing simple cython code, especially when using a GUI shell.
+Cpyx is a utility script to automatically run Cython and gcc with support for numpy.
+It can also run inlined Cython code from within Python via an import mechanism (see CythonInlineTest.py).
+I find this immensely helpful for testing simple Cython code, especially when using a GUI shell like PySlices or DreamPie.
 
-For standard (non-inline) usage, you will need to specify the location of your .pyx files (set myPyrexDir or the environment variable 'MYPYREX').
-Then call either Cpyx.Cpyx (or Cpyx.CpyxLib if you need to link in an external c file).  File extensions are assumed, so just use the name of the module.
+The three core functions in Cpyx are Cdll, Cpyx, and CpyxLib.
+Cdll is a simple gcc frontend, Cpyx runs cython and then compiles it, and CpyxLib compiles a pyx file and links in an external c file (useful when wrapping a single c source with Cython).
+CythonInline directly compiles Cython code passed in a string (by generating a temp file and running Cpyx) and returns the python call to "import *" the resulting module. Calling exec() will run the code inline.
 
-Cpyx has switches for 3 different OS's (windows, linux, mac) for various options, but hard-codes the paths to compiler binaries, etc.
-If you have cython or gcc in a non-standard place, you can either place a link in the spot Cpyx is looking for it or just go into Cpyx and edit the path (it's not really that long <500 lines with comments).
+For standard (non-inline) usage, if the directory is not set in the input file, Cpyx looks for the environment variable 'MYPYREX' and falls back to the current directory.
+Correct file extensions (.pyx and .c) are assumed, so you can leave them off and they are automatically inserted.
+With this in mind, calls to Cpyx can be very compact, i.e.: Cpyx('CythonModule')
+This compiles CythonModule.pyx to CythonModule.c and then to CythonModule.dll (or libCythonModule.so).
 
-It is quite verbose, outputting each command in sequence so you can manually run/modify the compiler commands if you need to.
-( That way even if it doesn't quite work, maybe you can use it to help you learn how to use cython and gcc ;) )
+By default, Cpyx makes direct system calls to Cython and gcc, with switches for the 3 different major OS's (Windows, Linux, Mac).
+Still, some aspects of the paths are hard-coded, so you may have problems if cython or gcc (or libpython) in a non-standard place.
+If this happens and Cpyx fails, you can either place a link to the real file in the spot Cpyx has found or just go into Cpyx.py and edit the paths at the top to match yours (just make sure you are looking at the right OS).
 
-I know there are other tools out there to do this same kind of thing (and in much better ways), but this scratches my itch and I thought I'd put it out there. Happy Cythoning!
+Also, Cpyx is quite verbose, outputting each command in sequence. So, you can also manually run/modify the compiler commands and run them yourself if you need to (and/or change the options inside Cdll/Cpyx/CpyxLib).
+This way even if Cpyx doesn't quite work, maybe you can use it to help you learn how to use cython and gcc ;)
+
+Instead of direct system calls, Cpyx can also use distutils (set useDistutils=True).
+In this case, Cpyx builds you a form-based "setup.py" file and executes it automatically.
+This can be handy if you want to transition from "play with some cython code" to actually putting it in a full-blown installable python package.
+
+Ideally, Cpyx should work anywhere gcc, cython, and python/numpy are installed.
+It is relatively well-tested and worked on Windows (XP/Vista/7), Linux (Ubuntu), and Mac OS X (Leopard/Snow Leopard), but let me know if it does not work for you.
+The useDistutils option, however, does not work on Windows due to a known issue with recent versions of mingw's gcc (4.4 on).
+
+Cpyx is quite simple (the 3 main functions are <200 lines of total code), so it is easy to debug and work on.
+
+I know there are other tools out there (most notably pyximport and sage's misc/cython.py) to do this same kind of thing (and in much cooler ways).
+But Cpyx scratches my itch and I thought I'd put it out there. Happy Cythoning!
+
+P.S.
+Unlike pyximport, CythonInline will re-run the code every time it is recompiled. There is some half-finished work towards a cacheing system, but you should really just use pyximport if you want this feature (which is very cool when it is works!).
