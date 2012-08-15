@@ -1,1 +1,1 @@
-import Cpyx
+from Cpyx import *
