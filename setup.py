@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='Cpyx',
-    version='0.1',
+    version='0.1.1',
     author='David N. Mashburn',
     author_email='david.n.mashburn@gmail.com',
     packages=['Cpyx'],
