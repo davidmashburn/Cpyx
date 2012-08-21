@@ -4,7 +4,7 @@ I find this immensely helpful for testing simple Cython code, especially when us
 
 The three core functions in Cpyx are Cdll, Cpyx, and CpyxLib.
 Cdll is a simple gcc frontend, Cpyx runs cython and then compiles the c output, and CpyxLib compiles a .pyx file and links in an external .c file (useful when wrapping a single C source with Cython).
-CythonInline directly compiles Cython code passed as a string (by generating a temp file and running Cpyx) and returns the python call to "import *" the resulting module. Calling exec() will run the code inline (see CythonInlineTest.py).
+CythonInline directly compiles Cython code passed as a string (by generating a temp file and running Cpyx) and returns the python call to "import \*" the resulting module. Calling exec() will run the code inline (see CythonInlineTest.py).
 
 For standard (non-inline) usage, if the directory is not set in the input file, Cpyx looks for the environment variable 'MYPYREX' and falls back to the current directory.
 Correct file extensions (.pyx and .c) are assumed, so you can leave them off and they are automatically inserted.
