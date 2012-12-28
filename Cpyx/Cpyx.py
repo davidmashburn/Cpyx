@@ -335,7 +335,7 @@ def InlineTableFind(codeIn):
     else:
         return None
 
-# Currently unused...
+# Currently unused... also, needs hashlib
 def InlineTableAddEntry(codeIn):
     val=InlineTableFind(codeIn)
     if val==None:
@@ -392,9 +392,9 @@ CythonPrint('HelloWorld!')
     # Also means memory gets majorly eaten up!
     # Can't have everything!
     moduleName='Cython'+str(random.randint(0,1e18))
-    file=os.path.join(tmpPath,moduleName+'.pyx')
+    filename=os.path.join(tmpPath,moduleName+'.pyx')
     
-    fid=open(file,'w')
+    fid=open(filename,'w')
     fid.write(code)
     fid.close()
     
