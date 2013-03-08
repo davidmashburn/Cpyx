@@ -323,11 +323,11 @@ def InlineTableFind(codeIn):
                 l=s.split(',')
                 l=[l[0],l[1],l[2],l[3]]
                 if l[1:]==entry:
-                    file=os.path.join(tmpDir,l[0]+'.pyx')
-                    if os.path.exists(file):
-                        fid2=open(file,'r')
+                    filename=os.path.join(tmpDir,l[0]+'.pyx')
+                    if os.path.exists(filename):
+                        fid2=open(filename,'r')
                         if code==fid2.read():
-                            out = file
+                            out = filename
                         fid2.close()
                     break
         fid.close()
