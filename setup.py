@@ -9,7 +9,7 @@ setup(
     scripts=[],
     url='http://pypi.python.org/pypi/Cpyx/',
     license='LICENSE.txt',
-    description='',
+    description='gcc/distutils wrapper for auto-compiling Cython code (including inline)',
     long_description=open('README.rst').read(),
     install_requires=[],
 )
