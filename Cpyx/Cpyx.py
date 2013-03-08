@@ -398,7 +398,7 @@ CythonPrint('HelloWorld!')
     fid.write(code)
     fid.close()
     
-    Cpyx(file,useDistutils=useDistutils,useCython=useCython,gccOptions=gccOptions,printCmds=printCmds)
+    Cpyx(filename,useDistutils=useDistutils,useCython=useCython,gccOptions=gccOptions,printCmds=printCmds)
     
     #cmd="""import """+moduleName+""" as LoadPyrexInline"""
     cmd="""from """+moduleName+""" import *"""
