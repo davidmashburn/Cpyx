@@ -32,4 +32,4 @@ I know there are other tools out there (most notably pyximport and sage's misc/c
 But, Cpyx scratches my itch and I thought I'd put it out there. Happy Cythoning!
 
 P.S.
-Unlike pyximport, CythonInline will re-run the code every time it is recompiled. There is some half-finished work towards a cacheing system, but you should really just use pyximport if you want this feature (which is very cool when it is works!).
+Unlike pyximport, CythonInline will re-run the code every time it is recompiled. There is some half-finished work towards a cacheing system, but you should really just use pyximport if you want this feature (which is very cool when it works!).
