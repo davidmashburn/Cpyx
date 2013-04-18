@@ -1,8 +1,12 @@
 from distutils.core import setup
 
+# Read the version number
+with open("Cpyx/_version.py") as f:
+    exec(f.read())
+
 setup(
     name='Cpyx',
-    version='0.1.2',
+    version=__version__, # use the same version that's in _version.py
     author='David N. Mashburn',
     author_email='david.n.mashburn@gmail.com',
     packages=['Cpyx'],
