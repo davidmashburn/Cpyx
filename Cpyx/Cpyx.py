@@ -44,108 +44,136 @@ import numpy
 # All-in-one with linking dll...
 # gcc -shared numpyTest.c -IC:/Python25/include -LC:/Python25/libs -LC:/Users/mashbudn/Programming/Python/Pyx -lpython25 -lnumpyTestC -o numpyTest.pyd
 
+# GLOBAL OPTIONS:
 globalUseCython = True
 globalUseDistutils = False
 
-pythonName=sys.executable
-verStr='.'.join([str(i) for i in sys.version_info[:2]]) # recently, 2.6 or 2.7
-verStr2=''.join([str(i) for i in sys.version_info[:2]]) # recently, 26 or 27
+# SYSTEM INFORMATION:
+pythonName = sys.executable
 
-if sys.platform=='win32':
-    pyrexcName='"' + os.path.join(sys.prefix,'Scripts','pyrexc.py') + '"' # Full path to the Pyrex compiler script
-    # this changed from previous versions...
-    #cythonName='"' + os.path.join(sys.prefix,'Scripts','cython-script.py') + '"' # Full path to the Cython compiler script
-    cythonName='"' + os.path.join(sys.prefix,'Lib','site-packages','cython.py') + '"' # Full path to the Cython compiler script
-    pythonName=os.path.join(sys.prefix,'python.exe') # Full path to python.exe
-    pythonInclude=os.path.join(sys.prefix,'include')
-    pythonLibs=os.path.join(sys.prefix,'libs')
-    #sitePackages=os.path.join(sys.prefix,'Lib','site-packages')
-elif sys.platform=='darwin':
-    pyrexcName='"' + os.path.join(sys.prefix,'bin','pyrexc') + '"' # Full path to the Pyrex compiler script
-    cythonName='"' + os.path.join(sys.prefix,'bin','cython') + '"' # Full path to the Cython compiler script
-    pythonName=os.path.join(sys.prefix,'bin','python') # Full path to python.exe
-    pythonInclude=os.path.join(sys.prefix,'include')
-    pythonLibs=os.path.join(sys.prefix,'lib','python'+verStr,'config/') # contains libpython2.5.so
-    #sitePackages=os.path.join(sys.prefix,'lib','python'+verStr,'site-packages')
-elif sys.platform=='linux2':
-    pyrexcName='"' + os.path.join(sys.prefix,'bin','pyrexc') + '"' # Full path to the Pyrex compiler script
-    cythonName='"' + os.path.join(sys.prefix,'bin','cython') + '"' # Full path to the Cython compiler script
-    pythonName=os.path.join(sys.prefix,'bin','python'+verStr) # Full path to python.exe
-    pythonInclude=os.path.join(sys.prefix,'include','python'+verStr)
-    pythonLibs=os.path.join(sys.prefix,'lib') # contains libpython2.5.so
-    #Debian / Ubuntu now put most everything in dist-packages...
-    #Luckily, these variables are not actually used in this script
-    #sitePackages=os.path.join(sys.prefix,'lib','python'+verStr,'site-packages')
-    #distPackages=os.path.join(sys.prefix,'lib','python'+verStr,'dist-packages')
-else:
+isWindows = (sys.platform=='win32')
+isMac = (sys.platform=='darwin')
+isLinux = (sys.platform=='linux2')
+
+if not isWindows or isMac or isLinux:
     print 'Platform "' + sys.platform + '" not supported yet'
+
+verStr = '.'.join(map(str, sys.version_info[:2])) # recently, 2.6 or 2.7
+verStr2 = ''.join(map(str, sys.version_info[:2])) # recently, 26 or 27
+
+# Helper functions:
+wrap = lambda s: "'" + s
+join = os.path.join
+jsys = lambda *args: join(sys.prefix, *args)
+
+def usr_or_local(*args):
+    x = jsys(*args)
+    return x if os.path.exists(x) else jsys('local', *args)
+
+# Full path to the Pyrex compiler script
+pyrexcName = wrap(jsys('Scripts', 'pyrexc.py') if isWindows else
+                  usr_or_local('bin', 'pyrexc'))
+# Full path to the Cython compiler script
+cythonName = wrap(jsys('Lib', 'site-packages', 'cython.py') if isWindows else
+                  usr_or_local('bin', 'cython'))
+
+# Full path to python executable
+pythonName = (jsys('python.exe') if isWindows else
+              usr_or_local('bin', 'python'))
+
+# Python's include and Libs directories:
+pythonInclude = usr_or_local('include', 'python' + (verStr if isLinux else ''))
+
+pythonLibs = (jsys('libs') if isWindows else
+              jsys('lib', 'python'+verStr,'config/') if isMac else
+              jsys('lib'))
 
 # Find numpy's arrayobject.h to include
 arrayobjecthPath = os.path.join(numpy.get_include(),'numpy','arrayobject.h')
 arrayObjectDir = numpy.get_include()
 
+# Takes:
+# 0 - name
+# 1 - name of main pyx file (no extension)
+# 2 - a comma-demimited list of quoted file names
+# 3 - a comma-delimited list of compiler options
+# 4 - number of threads
+
+#'-Wno-unused-function', 
+#'-stdlib=libc++',
+#'-std=c++11', 
+#'-mmacosx-version-min=10.8',
+
+setup_py_template = '''# This file is auto-generated, do not edit!
+from distutils.core import setup
+from distutils.extension import Extension
+from Cython.Build import cythonize
+import sys
+
+extensions = [Extension( "{1}", [{2}], extra_compile_args = [{3}])]
+setup(name='{0}', ext_modules=cythonize(extensions, nthreads={4}))
+'''
+
+
+def _system(cmd, use_print=True):
+    if type(cmd) is not str:
+        cmd = ' '.join(cmd)
+    
+    if use_print:
+        print '\n', cmd
+    
+    return os.system(cmd)
+
 def ResolvePath(pth):
     '''Return the path if it is not an empty
     Otherwise try to use os.environ['MYPYREX']
     And fall back on the current directory'''
-    if pth!='':
-        return pth
-    elif 'MYPYREX' in os.environ:
-        return os.environ['MYPYREX']
-    else:
-        return os.getcwd()
+    return (pth if pth else
+            os.environ['MYPYREX'] if 'MYPYREX' in os.environ else
+            os.getcwd())
 
-def Cdll(cNameIn='',printCmds=True,gccOptions=''):
+def Cdll(cNameIn='',printCmds=True, gccOptions=''):
     '''Use gcc to compile a shared library (.dll on Windows, .so on *nix)'''
-    cwd=os.getcwd()
+    cwd = os.getcwd()
     
-    (cPath,cName)=os.path.split(cNameIn) # input path and input file name
-    dllPath=cPath=ResolvePath(cPath)
+    cPath, cName = os.path.split(cNameIn) # input path and input file name
+    dllPath = cPath = ResolvePath(cPath)
     
-    stripName=(os.path.splitext(cName))[0] # input file name without extension
+    stripName = os.path.splitext(cName)[0] # input file name without extension
     
-    if sys.platform=='win32':      dllName='"' + os.path.join(dllPath,stripName+'.dll') + '"'
-    elif sys.platform=='darwin':   dllName='"' + os.path.join(dllPath,'lib'+stripName+'.so') + '"'
-    elif sys.platform=='linux2':   dllName='"' + os.path.join(dllPath,'lib'+stripName+'.so') + '"'
-    else:                          print 'Platform "' + sys.platform + '" not supported yet'
+    dllName = wrap(join(dllPath, (stripName+'.dll' if isWindows else
+                                  'lib'+stripName+'.so')))
     
-    cName='"' + os.path.join(cPath,stripName+'.c') + '"' # redefine cName
-    hName='"' + os.path.join(cPath,stripName+'.h') + '"'
-    oName='"' + os.path.join(dllPath,stripName+'.o') + '"'
+    cName = wrap(join(cPath, stripName+'.c')) # redefine cName
+    hName = wrap(join(cPath, stripName+'.h'))
+    oName = wrap(join(dllPath, stripName+'.o'))
     
     os.chdir(cPath)
     
-    cmd=' '.join(['gcc',gccOptions,'-fPIC','-c',cName,'-o',stripName+'.o'])
-    if printCmds:
-        print '\n', cmd
-    os.system(cmd)
-    
-    cmd=' '.join(['gcc','-shared','-o',dllName,oName])
-    if printCmds:
-        print '\n', cmd
-    os.system(cmd)
+    _system(['gcc', gccOptions, '-fPIC', '-c', cName, '-o', stripName+'.o'], printCmds)
+    _system(['gcc', '-shared', '-o', dllName, oName], printCmds)
     
     os.chdir(cwd)
 
 def Cpyx(pyxNameIn='CythonExample.pyx',useDistutils=globalUseDistutils,useCython=globalUseCython,gccOptions='',printCmds=True):
     '''Run Cython (or Pyrex) and then GCC to generate a Python extension module'''
-    cwd=os.getcwd()
+    cwd = os.getcwd()
     
-    (pyxPath,pyxName)=os.path.split(pyxNameIn) # input path and input file name
+    pyxPath, pyxName = os.path.split(pyxNameIn) # input path and input file name
     
-    pydPath=mainDir=ResolvePath(pyxPath)
-    pyxStrip=(os.path.splitext(pyxName))[0] # input file name without extension
+    pydPath = mainDir = ResolvePath(pyxPath)
+    pyxStrip = os.path.splitext(pyxName)[0] # input file name without extension
     
-    extName='"' + pyxStrip + '"'
-    pyxName='"' + os.path.join(mainDir,pyxStrip+'.pyx') + '"' # Full path to the PYX file (must be in Python/Pyx folder) redefine pyxName
-    pyx2cName='"' + os.path.join(pydPath,pyxStrip+'.c') + '"' # Full path to the C file to be created
-    pydName='"' + os.path.join(pydPath,pyxStrip+'.pyd') + '"' # Full path to the PYD file to be created
-    soName='"' + os.path.join(pydPath,pyxStrip+'.so') + '"' # Full path to the lib*.so file to be created
-    setupName='"' + os.path.join(pydPath,'setup.py') + '"' # Full path of the Setup File to be created
+    extName = wrap(pyxStrip)
+    pyxName = wrap(join(mainDir, pyxStrip+'.pyx')) # Full path to the PYX file (must be in Python/Pyx folder) redefine pyxName
+    pyx2cName = wrap(join(pydPath, pyxStrip+'.c')) # Full path to the C file to be created
+    pydName = wrap(join(pydPath, pyxStrip+'.pyd')) # Full path to the PYD file to be created
+    soName = wrap(join(pydPath, pyxStrip+'.so')) # Full path to the lib*.so file to be created
+    setupName = wrap(join(pydPath, 'setup.py')) # Full path of the Setup File to be created
     
     if useDistutils:
         #write setup.py which will make a PYD file that can be imported
-        setupText="""### This file is setup.py ###
+        setupText = """### This file is setup.py ###
 from distutils.core import setup 
 from distutils.extension import Extension 
 from """ + ('Cython' if useCython else 'Pyrex') + """.Distutils import build_ext 
@@ -208,53 +236,55 @@ def CpyxLib(pyxNameIn='CythonExample.pyx',cNameIn='CTestC.c',recompile=True,useD
     pyxStrip=(os.path.splitext(pyxName))[0] # input file name without extension
     cStrip=(os.path.splitext(cName))[0] # input file name without extension
     
-    extName='"' + pyxStrip + '"'
-    pyxName='"' + os.path.join(mainDir,pyxStrip+'.pyx') + '"' # Full path to the PYX file (must be in Python\\Pyrex folder)
+    extName = wrap(pyxStrip
+    pyxName = wrap(os.path.join(mainDir,pyxStrip+'.pyx') # Full path to the PYX file (must be in Python\\Pyrex folder)
     
     if sys.platform=='win32':
-        dllName='"' + os.path.join(dllPath,cStrip+'.dll') + '"'
-        libName='"' + os.path.join(dllPath,cStrip) + '"'
+        dllName = wrap(os.path.join(dllPath,cStrip+'.dll')
+        libName = wrap(os.path.join(dllPath,cStrip)
         library_dirs_txt=''
     elif sys.platform=='darwin':
-        dllName='"' + os.path.join(dllPath,'lib'+cStrip+'.so') + '"'
-        libName='"' + cStrip + '"'
+        dllName = wrap(os.path.join(dllPath,'lib'+cStrip+'.so')
+        libName = wrap(cStrip
         library_dirs_txt="""
-    library_dirs=[""" + '"' + pydPath.replace('\\','\\\\') + '"' + """],
-    runtime_library_dirs=[""" + '"' + pydPath.replace('\\','\\\\') + '"' + """],"""
+    library_dirs=[""" + pydPath.replace('\\','\\\\') + """],
+    runtime_library_dirs=[""" + pydPath.replace('\\','\\\\') + """],"""
     elif sys.platform=='linux2':
-        dllName='"' + os.path.join(dllPath,'lib'+cStrip+'.so') + '"'
-        libName='"' + cStrip + '"'
+        dllName = wrap(os.path.join(dllPath,'lib'+cStrip+'.so')
+        libName = wrap(cStrip
         library_dirs_txt="""
-    library_dirs=[""" + '"' + pydPath.replace('\\','\\\\') + '"' + """],
-    runtime_library_dirs=[""" + '"' + pydPath.replace('\\','\\\\') + '"' + """],"""
+    library_dirs=[""" + pydPath.replace('\\','\\\\') + """],
+    runtime_library_dirs=[""" + pydPath.replace('\\','\\\\') + """],"""
     else:
         print 'Platform "' + sys.platform + '" not supported yet'
     
-    cName='"' + os.path.join(cPath,cStrip+'.c') + '"' # redefine cName
-    hName='"' + os.path.join(cPath,cStrip+'.h') + '"'
-    oName='"' + os.path.join(dllPath,cStrip+'.o') + '"'
+    cName = wrap(os.path.join(cPath,cStrip+'.c') # redefine cName
+    hName = wrap(os.path.join(cPath,cStrip+'.h')
+    oName = wrap(os.path.join(dllPath,cStrip+'.o')
     
     os.chdir(cPath)
     
-    pyx2cName='"' + os.path.join(pydPath,pyxStrip+'.c') + '"' # Full path to the C file to be created
-    setupName='"' + os.path.join(pydPath,'setup.py') + '"' # Full path of the Setup File to be created
-    pydName='"' + os.path.join(pydPath,pyxStrip+'.pyd') + '"' # Full path to the PYD file to be created
-    soName='"' + os.path.join(pydPath,pyxStrip+'.so') + '"' # Full path to the lib*.so file to be created
+    pyx2cName = wrap(os.path.join(pydPath,pyxStrip+'.c') # Full path to the C file to be created
+    setupName = wrap(os.path.join(pydPath,'setup.py') # Full path of the Setup File to be created
+    pydName = wrap(os.path.join(pydPath,pyxStrip+'.pyd') # Full path to the PYD file to be created
+    soName = wrap(os.path.join(pydPath,pyxStrip+'.so') # Full path to the lib*.so file to be created
     
     if useDistutils:
         #write setup.py which will make a PYD file that can be imported
         setupText="""### This file is setup.py ###
 from distutils.core import setup 
 from distutils.extension import Extension 
-from """+('Cython' if useCython else 'Pyrex')+""".Distutils import build_ext 
+#from """+('Cython' if useCython else 'Pyrex')+""".Distutils import build_ext 
+from Cython.Build import cythonize
 
 setup( 
   name = 'Lock module', 
-  ext_modules=[ 
-    Extension(""" + extName + ', [' + pyxName.replace('\\','\\\\') + """],"""+library_dirs_txt+"""
-    libraries=[""" + libName.replace('\\','\\\\') + ']' + """),
-  ], 
-  cmdclass = {'build_ext': build_ext} 
+  ext_modules=#[ 
+    #Extension(""" + extName + ', [' + pyxName.replace('\\','\\\\') + """],"""+library_dirs_txt+"""
+    cythonize(""" + pyxName.replace('\\','\\\\') + """)
+    #libraries=[""" + libName.replace('\\','\\\\') + ']' + """),
+  #], 
+  #cmdclass = {'build_ext': build_ext} 
 )"""
         if printCmds:
             print 'Write Stuff to ', setupName[1:-1]
@@ -416,3 +446,32 @@ def CleanTmp():
     tmpPath=os.path.expanduser('~/.Cpyx_tmp')
     for i in glob.glob(os.path.join(tmpPath,'*')):
         os.remove(i)
+
+def make_setup_py():
+    s = '''from distutils.core import setup
+from distutils.extension import Extension
+from Cython.Build import cythonize
+import sys
+
+extensions = [
+    Extension(
+        "{0}", 
+        ["{0}.pyx", "{1}.c"],
+        #extra_compile_args = [
+            #'-Wno-unused-function', 
+            #'-stdlib=libc++',
+            #'-std=c++11', 
+            #'-mmacosx-version-min=10.8',
+        #],
+        #language = 'c++',
+    )
+]
+setup(
+    name='{0}',
+    ext_modules=cythonize(
+        extensions,
+        #nthreads=4,
+    )
+)'''
+    # FIX ME HERE
+
