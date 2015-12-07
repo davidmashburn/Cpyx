@@ -38,6 +38,7 @@
 
 import os
 import sys
+import types
 import multiprocessing
 from distutils.core import setup
 from distutils.extension import Extension
@@ -99,6 +100,15 @@ ARRAY_OBJECT_DIR = numpy.get_include()
 # 3 - a comma-delimited list of compiler options
 # 4 - number of threads
 
+def islistlike(x):
+    '''Test if something is an iterable but NOT as string'''
+    return hasattr(x, '__iter__') and not isinstance(x, types.StringTypes)
+
+def _listify(x, n=1):
+    '''Wrap x as a list if it is not already a list.
+       Optionally duplicate the value n times'''
+    return x if islistlike(x) else [x]*n
+
 def _system(command, directory=None, use_print=True):
     if type(command) is not str:
         command = ' '.join(command)
@@ -129,33 +139,30 @@ def _resolve_path(pth):
 def split_with_ext(filename):
     path, name = os.path.split(filename)
     base_name, ext = os.path.splitext(name)
-    paths = map(_resolve_path, paths)
+    path = _resolve_path(path)
     return path, base_name, ext
 
-def build_path(path, base_name, ext, quote=False):
+def build_path(path, base_name, ext, use_quote=False):
     '''Build a quoted path'''
     p = os.path.join(path, base_name+ext)
-    return quote(p) if add_quotes else p
+    return quote(p) if use_quote else p
 
-def build_path_list(paths, base_names, exts, quote=False):
+def build_path_list(paths, base_names, exts, use_quote=False):
     '''Build a list of quoted paths
        "paths" and "exts" can optionally be common values instead of lists'''
-    if type(paths) is not list:
-        paths = [paths]*len(base_names)
-    
-    if type(exts) is not list:
-        exts = [exts]*len(base_names)
-
-    return [quoted_path(p, b, e, add_quotes)
+    paths = _listify(paths, n=len(base_names))
+    exts = _listify(exts, n=len(base_names))
+    return [build_path(p, b, e, use_quote)
             for p, b, e in zip(paths, base_names, exts)]
 
-def cc(c_filenames_in, output_path=None, gcc_options=('-fPIC'),
+def cc(c_filenames_in, output_path=None, gcc_options=None,
        print_cmds=PRINT_CMDS):
     '''Call gcc to compile a shared library
        (.dll on Windows, lib*.so on *nix)
        Places output next to first c file unless otherwise specified'''
-    if not c_filenames_in:
-        return
+    gcc_options = ['-fPIC'] if gcc_options is None else gcc_options
+    
+    c_filenames_in = _listify(c_filenames_in)
     
     paths, base_names, _ = zip(*map(split_with_ext, c_filenames_in))
     main_name = base_names[0]
@@ -164,13 +171,13 @@ def cc(c_filenames_in, output_path=None, gcc_options=('-fPIC'),
     output_path = (paths[0] if output_path is None else
                    _resolve_path(output_path))
     
-    c_files = build_path_list(paths, base_names, '.c', quote=True)
-    o_files = build_path_list(output_path, base_names, '.o', quote=True)
+    c_files = build_path_list(paths, base_names, '.c', use_quote=True)
+    o_files = build_path_list(output_path, base_names, '.o', use_quote=True)
     lib_file = quote(os.path.join(output_path, lib_name))
     
     # Compile each object file
     for c_file, o_file in zip(c_files, o_files):
-        _system(['gcc'] + list(gccOptions) + ['-c', c_file, '-o', o_file],
+        _system(['gcc'] + list(gcc_options) + ['-c', c_file, '-o', o_file],
                 output_path, print_cmds)
     
     # Combine into a shared library
@@ -179,10 +186,12 @@ def cc(c_filenames_in, output_path=None, gcc_options=('-fPIC'),
 
 def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
          gcc_options=None, use_distutils=USE_DISTUTILS, nthreads=None,
-         build_c=False, print_cmds=PRINT_CMDS):
+         recompile=True, print_cmds=PRINT_CMDS):
     '''Run Cython and then GCC to generate a Python extension module
        Optionally include c files to build and link in as well
        Now uses distutils by default'''
+    pyx_filenames_in, c_filenames_in = map(_listify, [pyx_filenames_in, c_filenames_in])
+    
     pyx_paths, pyx_base_names, _ = zip(*map(split_with_ext, pyx_filenames_in))
     c_paths, c_base_names, _ = zip(*map(split_with_ext, c_filenames_in))
     main_name = pyx_base_names[0] # use the first cython name as the project name
@@ -193,31 +202,31 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
                    _resolve_path(output_path))
     
     pyx_files = build_path_list(pyx_paths, pyx_base_names, '.pyx')
-    c_files = build_path_list(c_paths, c_base_names, '.c'))
+    c_files = build_path_list(c_paths, c_base_names, '.c')
     pyx_c_files = build_path_list(pyx_paths, pyx_base_names, '.c')
     lib_file = os.path.join(output_path, lib_name)
     
-    if useDistutils:
+    if use_distutils:
         nthreads = multiprocessing.cpu_count() if nthreads is None else nthreads
         extra_compile_args = [] if gcc_options is None else gcc_options
         
         cwd = os.getcwd()
         os.chdir(output_path)
         
-        extensions = [Extension(main_name, [pyx_files + c_files],
+        extensions = [Extension(main_name, pyx_files + c_files,
                                 include_dirs=['.'],
                                 extra_compile_args=extra_compile_args)]
-        setup(name=name,
+        setup(name=main_name,
               ext_modules=cythonize(extensions, nthreads=nthreads),
               script_args=['build_ext', '--inplace'])
         
         os.chdir(cwd)
         
-        if printCmds:
+        if print_cmds:
             'Build everything using distutils'
     else:
         # Optionally build a shared library from all the c files
-        if build_c:
+        if recompile:
             cc(c_files, output_path, gcc_options, print_cmds)
         
         # Quote the files
@@ -230,10 +239,11 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
         for pyx, c in zip(pyx_files, pyx_c_files):
             _system([PYTHON, CYTHON, pyx, '-o', c])
         
-        gcc_options = [] if gcc_options is None else gcc_options
-        
         # Build the big gcc command to combine everything
-        cmd = ['gcc'] + gcc_options
+        cmd = ['gcc']
+        if gcc_options is not None:
+            cmd += gcc_options
+        
         
         if isWindows:
             cmd += ['-fPIC', '-shared', '-I'+PYTHON_INCLUDE, '-I'+ARRAY_OBJECT_DIR, '-L'+PYTHON_LIBS, '-L'+cPath, '-Wl,-R'+cPath, '-lpython'+VERSION_STR]
@@ -244,7 +254,7 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
         else:
             cmd += ['-fPIC', '-shared', '-I'+PYTHON_INCLUDE, '-L'+PYTHON_LIBS, '-lpython'+VERSION_STR]
         
-        if c_file_names_in:
+        if c_filenames_in:
             # Link to the paths where the headers are and also to the location of the shared library built earlier
             cmd += ['-L'+c for c in c_paths]     # link to all the paths
             cmd += ['-Wl,-R'+c for c in c_paths] # link to all the paths (send to linker)
@@ -253,10 +263,27 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
         cmd += pyx_c_files + ['-o', lib_file]
         
         _system(cmd, directory=output_path)
-    
-    os.chdir(cwd)
 
-# GCC options that might be useful:
+## Other Helper Functions (useful for generating pxd files or filling in templates in pyx files, etc):
+
+def get_function_signature(s, sig):
+    '''Get the raw function signature (everything inside the parentheses) for a C function
+       s is a file as a string, sig is something like "void foo" '''
+    return s.split(sig)[1].split('{')[0].strip()[1:-1].strip()
+
+def get_function_args(s, sig):
+    '''Get the function arguments from a C function'''
+    return [i.strip() for i in get_function_signature(s, sig).split(',')]
+
+def get_function_types_and_variables(s, sig):
+    '''Get a list of [type, variable] for each argument in a C function'''
+    return [i.replace('*', '* ').split()
+            for i in get_function_args(s, sig)]
+
+
+
+
+# Other GCC options that might be useful:
 #'-Wno-unused-function', 
 #'-stdlib=libc++',
 #'-std=c++11', 
