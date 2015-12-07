@@ -240,10 +240,10 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
             _system([PYTHON, CYTHON, pyx, '-o', c])
         
         # Build the big gcc command to combine everything
-        cmd = ['gcc']
+        cmd = ['gcc'] + pyx_c_files
+        
         if gcc_options is not None:
             cmd += gcc_options
-        
         
         if isWindows:
             cmd += ['-fPIC', '-shared', '-I'+PYTHON_INCLUDE, '-I'+ARRAY_OBJECT_DIR, '-L'+PYTHON_LIBS, '-L'+cPath, '-Wl,-R'+cPath, '-lpython'+VERSION_STR]
@@ -260,7 +260,7 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
             cmd += ['-Wl,-R'+c for c in c_paths] # link to all the paths (send to linker)
             cmd += ['-l'+c_shared_lib_name] # link to the shared library directly
         
-        cmd += pyx_c_files + ['-o', lib_file]
+        cmd += ['-o', lib_file]
         
         _system(cmd, directory=output_path)
 
