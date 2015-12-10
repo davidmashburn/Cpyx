@@ -2,9 +2,9 @@ Cpyx is a utility script to automatically build C and Cython code using either d
 
 The two core functions are cc and cpyx which compile c sources and cython+c sources respecively.
 
-"cc" builds a shared library from all included inputs, using path resolution and quoting to aid in debugging issues (gcc commands should run verbatim from any directory).
+* "cc" builds a shared library from all included inputs, using path resolution and quoting to aid in debugging issues (gcc commands should run verbatim from any directory).
 
-"cpyx" builds multiple c and cython sources into a python extension module.
+* "cpyx" builds multiple c and cython sources into a python extension module.
 If use_distutils is True, compiles a monolithic module from all c and pyx sources.
 If use_distutils is False, this first uses "cc" to compile a shared library from the given c sources, next uses cython to generate c files from all given pyx files, and then uses gcc to compile the resulting c sources into an extension module that links to the shared library. This is more complicated, but often easier to debug.
 
