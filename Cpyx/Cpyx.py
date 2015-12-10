@@ -28,7 +28,7 @@
 # gcc -shared PyrexExample.c -IC:/Python25/include -LC:/Python25/libs -lpython25 -o PyrexExample.pyd
 #
 # All-in-one with linking dll...
-# gcc -shared numpyTest.c -IC:/Python25/include -LC:/Python25/libs -LC:/Users/me/Programming/Python/Pyx -lpython25 -lnumpyTestC -o numpyTest.pyd
+# gcc numpyTest.c -shared -IC:/Python25/include -LC:/Python25/libs -LC:/Users/me/Programming/Python/Pyx -lpython25 -lnumpyTestC -o numpyTest.pyd
 #
 # Author: David Mashburn
 # Created July 2006
@@ -277,10 +277,13 @@ def get_function_args(s, sig):
 
 def get_function_types_and_variables(s, sig):
     '''Get a list of [type, variable] for each argument in a C function'''
-    return [i.replace('*', '* ').split()
+    most_and_last = lambda x: [' '.join(x[:-1]), x[-1]] # clump all arguments but the first one together
+    return [most_and_last(i.replace('*', '* ').split())
             for i in get_function_args(s, sig)]
 
-
+def rebuild_function_signature(s, sig):
+    args = get_function_args(s, sig)
+    return sig + '(' + (',\n' + ' '*(len(sig)+1)).join(args) + ')'
 
 
 # Other GCC options that might be useful:
