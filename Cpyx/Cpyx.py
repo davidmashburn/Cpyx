@@ -266,22 +266,27 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
 
 ## Other Helper Functions (useful for generating pxd files or filling in templates in pyx files, etc):
 
-def get_function_signature(s, sig):
-    '''Get the raw function signature (everything inside the parentheses) for a C function
-       s is a file as a string, sig is something like "void foo" '''
+def get_function_raw_arguments(s, sig):
+    '''For a C function, get all arguments as a single string
+       (everything inside the parentheses):
+          s is a filename (string)
+          sig is something like "void foo"
+       The function body must use {}'s for this to work.'''
     return s.split(sig)[1].split('{')[0].strip()[1:-1].strip()
 
 def get_function_args(s, sig):
-    '''Get the function arguments from a C function'''
-    return [i.strip() for i in get_function_signature(s, sig).split(',')]
+    '''For a C function, get a string for each argument'''
+    return [i.strip() for i in get_function_raw_arguments(s, sig).split(',')]
 
 def get_function_types_and_variables(s, sig):
-    '''Get a list of [type, variable] for each argument in a C function'''
+    '''For a C function, get a list of [type, variable] for each argument'''
     most_and_last = lambda x: [' '.join(x[:-1]), x[-1]] # clump all arguments but the first one together
     return [most_and_last(i.replace('*', '* ').split())
             for i in get_function_args(s, sig)]
 
 def rebuild_function_signature(s, sig):
+    '''Recontruct the full function signature using "get_function_args".
+       Whitespace is set to automatically to align all arguments.'''
     args = get_function_args(s, sig)
     return sig + '(' + (',\n' + ' '*(len(sig)+1)).join(args) + ')'
 
