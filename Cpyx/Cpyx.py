@@ -156,11 +156,13 @@ def build_path_list(paths, base_names, exts, use_quote=False):
             for p, b, e in zip(paths, base_names, exts)]
 
 def cc(c_filenames_in, output_path=None, gcc_options=None,
-       print_cmds=PRINT_CMDS):
+       ld_options=None, print_cmds=PRINT_CMDS):
     '''Call gcc to compile a shared library
        (.dll on Windows, lib*.so on *nix)
        Places output next to first c file unless otherwise specified'''
-    gcc_options = ['-fPIC'] if gcc_options is None else gcc_options
+    gcc_options = ['-fPIC'] if gcc_options is None else list(gcc_options)
+    ld_options = ([] if ld_options is None else
+                  ['-Wl,'+i for I in ld_options])
     
     c_filenames_in = _listify(c_filenames_in)
     
@@ -177,16 +179,16 @@ def cc(c_filenames_in, output_path=None, gcc_options=None,
     
     # Compile each object file
     for c_file, o_file in zip(c_files, o_files):
-        _system(['gcc'] + list(gcc_options) + ['-c', c_file, '-o', o_file],
+        _system(['gcc'] + gcc_options + ['-c', c_file, '-o', o_file],
                 output_path, print_cmds)
     
     # Combine into a shared library
-    _system(['gcc', '-shared', '-o', lib_file] + o_files,
+    _system(['gcc', '-shared'] + ld_options + ['-o', lib_file] + o_files,
             output_path, print_cmds)
 
 def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
-         gcc_options=None, use_distutils=USE_DISTUTILS, nthreads=None,
-         recompile=True, print_cmds=PRINT_CMDS):
+         gcc_options=None, ld_options=None, use_distutils=USE_DISTUTILS,
+         nthreads=None, recompile=True, print_cmds=PRINT_CMDS):
     '''Run Cython and then GCC to generate a Python extension module
        Optionally include c files to build and link in as well
        Now uses distutils by default'''
@@ -209,13 +211,15 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
     if use_distutils:
         nthreads = multiprocessing.cpu_count() if nthreads is None else nthreads
         extra_compile_args = [] if gcc_options is None else gcc_options
+        extra_link_args = [] if ld_options is None else ld_options
         
         cwd = os.getcwd()
         os.chdir(output_path)
         
         extensions = [Extension(main_name, pyx_files + c_files,
                                 include_dirs=['.'],
-                                extra_compile_args=extra_compile_args)]
+                                extra_compile_args=extra_compile_args,
+                                extra_link_args=extra_link_args)]
         setup(name=main_name,
               ext_modules=cythonize(extensions, nthreads=nthreads),
               script_args=['build_ext', '--inplace'])
@@ -227,7 +231,7 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
     else:
         # Optionally build a shared library from all the c files
         if recompile:
-            cc(c_files, output_path, gcc_options, print_cmds)
+            cc(c_files, output_path, gcc_options, ld_options, print_cmds)
         
         # Quote the files
         pyx_files = map(quote, pyx_files)
@@ -244,6 +248,9 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
         
         if gcc_options is not None:
             cmd += gcc_options
+        
+        if ld_options is not None:
+            cmd += ['-Wl,'+i for i in ld_options]
         
         if isWindows:
             cmd += ['-fPIC', '-shared', '-I'+PYTHON_INCLUDE, '-I'+ARRAY_OBJECT_DIR, '-L'+PYTHON_LIBS, '-L'+cPath, '-Wl,-R'+cPath, '-lpython'+VERSION_STR]
