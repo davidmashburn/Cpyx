@@ -39,6 +39,7 @@
 import os
 import sys
 import types
+import random
 import multiprocessing
 from distutils.core import setup
 from distutils.extension import Extension
@@ -186,6 +187,11 @@ def cc(c_filenames_in, output_path=None, gcc_options=None,
     _system(['gcc', '-shared'] + ld_options + ['-o', lib_file] + o_files,
             output_path, print_cmds)
 
+def _has3(x):
+    '''Return x unless x is an empty list; in that case return 3 empty lists'''
+    return ([],[],[]) if x == [] else x
+
+
 def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
          gcc_options=None, ld_options=None, use_distutils=USE_DISTUTILS,
          nthreads=None, recompile=True, print_cmds=PRINT_CMDS):
@@ -195,9 +201,9 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
     pyx_filenames_in, c_filenames_in = map(_listify, [pyx_filenames_in, c_filenames_in])
     
     pyx_paths, pyx_base_names, _ = zip(*map(split_with_ext, pyx_filenames_in))
-    c_paths, c_base_names, _ = zip(*map(split_with_ext, c_filenames_in))
+    c_paths, c_base_names, _ = _has3(zip(*map(split_with_ext, c_filenames_in)))
     main_name = pyx_base_names[0] # use the first cython name as the project name
-    c_shared_lib_name = c_base_names[0] # use the first c name as the shared library name that we link to
+    c_shared_lib_name = c_base_names[0] if c_base_names else '' # use the first c name as the shared library name that we link to
     lib_name = main_name + ('.pyd' if isWindows else '.so')
     
     output_path = (pyx_paths[0] if output_path is None else
@@ -270,6 +276,35 @@ def cpyx(pyx_filenames_in, c_filenames_in=(), output_path=None,
         cmd += ['-o', lib_file]
         
         _system(cmd, directory=output_path)
+
+TMP = os.path.expanduser('~/.Cpyx_inline_tmp/')
+
+def cpyx_inline(code, tmp_dir=TMP, **kwds):
+    '''Cython function for inline usage
+       Write a temp .pyx file, compile, import, and return the module
+       Differs from cython.inline in that more features are working ;)
+       
+       All keywords are passed to cpyx
+       
+       You may want to occasionally clear the cached files this generates:
+       rm ~/.cpyx_inline_tmp/*
+       '''
+    if not os.path.exists(tmp_dir):
+        os.mkdir(tmp_dir)
+
+    sys.path.append(tmp_dir)
+    
+    mn = 'out' + str(random.randint(0, 1e18))
+    fn = os.path.join(tmp_dir, mn + '.pyx')
+    with open(fn, 'w') as fid:
+        fid.write(code)
+    cpyx(fn, **kwds)
+    exec('import ' + mn)
+    exec('imported_module = ' + mn)
+    
+    sys.path.pop()
+    
+    return imported_module
 
 ## Other Helper Functions (useful for generating pxd files or filling in templates in pyx files, etc):
 
